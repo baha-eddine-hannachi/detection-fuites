@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Détection de Fuites - Dashboard</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .dashboard {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .dashboard.alerte {
+            background: rgba(255, 230, 230, 0.95);
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 30px rgba(255, 0, 0, 0.5); }
+            50% { box-shadow: 0 0 50px rgba(255, 0, 0, 0.8); }
+            100% { box-shadow: 0 0 30px rgba(255, 0, 0, 0.5); }
+        }
+        
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .btn-simuler {
+            background: #ff6b6b;
+            color: white;
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .btn-simuler:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(255, 107, 107, 0.3);
+        }
+        
+        .btn-simuler:active {
+            transform: translateY(0);
+        }
+        
+        .btn-effacer {
+            background: #4ecdc4;
+            color: white;
+        }
+        
+        .btn-effacer:hover {
+            background: #45b7aa;
+            transform: translateY(-2px);
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card.alerte-active {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%);
+            animation: pulse-card 1s infinite;
+        }
+        
+        @keyframes pulse-card {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+        
+        .stat-card h3 {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+        
+        .stat-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .unit {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        
+        .chart-container {
+            margin-bottom: 30px;
+            width: 100%;
+            height: 40vh;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .alertes-container {
+                        width: 100%;
+
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .alertes-container h2 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .badge {
+            background: #ff6b6b;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+        }
+        
+        .alertes-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .alerte-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .alerte-item.fuite {
+            background: #ffebee;
+            border-left: 4px solid #ff5252;
+            color: #c62828;
+        }
+        
+        .alerte-item.normal {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            color: #2e7d32;
+        }
+        
+        .alerte-time {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ecdc4, #45b7aa);
+            transition: width 0.1s linear;
+        }
+        
+        .progress-fill.alerte {
+            background: linear-gradient(90deg, #ff6b6b, #ff5252);
+        }
+        
+        .simulation-timer {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Détection de Fuites - Dashboard</h1>
+        
+        <div class="dashboard" id="dashboard">
+            <div class="header-controls">
+                <div class="header-controls">
+    <select id="niveauFuite" class="form-select">
+        <option value="leger">Léger (30-40%)</option>
+        <option value="moyen">Moyen (50-60%)</option>
+        <option value="eleve">Élevé (70-80%)</option>
+        <option value="extreme" selected>Extrême (90-100%)</option>
+    </select>
+    
+    <button class="btn-simuler" onclick="simulerFuite()">
+        ⚡ Simuler fuite
+    </button>
+    
+    <button class="btn-forcer" onclick="forcerAlerte()" style="background: #ff0000;">
+        🚨 FORCER ALERTE
+    </button>
+    
+    <button class="btn-effacer" onclick="effacerAlertes()">
+        🗑️ Effacer alertes
+    </button>
+</div>
+            
+            <!-- Timer de simulation -->
+            <div class="simulation-timer" id="timerDisplay" style="display: none;">
+                <div>Simulation en cours... <span id="timerSeconds">5</span>s</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 100%;"></div>
+                </div>
+            </div>
+            
+            <!-- Statistiques en temps réel -->
+            <div class="stats-container">
+                <div class="stat-card" id="statVibration">
+                    <h3>📳 Vibration</h3>
+                    <div class="value" id="vibrationValue">0.00</div>
+                    <div class="unit">mm/s</div>
+                </div>
+                <div class="stat-card" id="statTemperature">
+                    <h3>🌡️ Température</h3>
+                    <div class="value" id="temperatureValue">0.00</div>
+                    <div class="unit">°C</div>
+                </div>
+                <div class="stat-card" id="statPression">
+                    <h3>📊 Pression</h3>
+                    <div class="value" id="pressionValue">0.00</div>
+                    <div class="unit">kPa</div>
+                </div>
+                <div class="stat-card" id="statProbabilite">
+                    <h3>⚠️ Probabilité fuite</h3>
+                    <div class="value" id="probabiliteValue">0</div>
+                    <div class="unit">%</div>
+                </div>
+            </div>
+            
+            <!-- Graphique -->
+            <div class="chart-container">
+                <canvas id="sensorChart"></canvas>
+            </div>
+            
+            <!-- Alertes -->
+            <div class="alertes-container">
+                <h2>
+                    📋 Dernières Alertes
+                    <span class="badge" id="alerteCount">0</span>
+                </h2>
+                <div class="alertes-list" id="alertesList">
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        Aucune alerte pour le moment
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:5000');
+        let chart;
+        let simulationActive = false;
+        let simulationTimer = null;
+        let secondsLeft = 5;
+        
+        // Configuration du graphique
+        const ctx = document.getElementById('sensorChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Vibration (mm/s)',
+                        data: [],
+                        borderColor: '#ff6b6b',
+                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Température (°C)',
+                        data: [],
+                        borderColor: '#4ecdc4',
+                        backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Pression (kPa)',
+                        data: [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 120,
+                        grid: { color: 'rgba(0,0,0,0.1)' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top' }
+                }
+            }
+        });
+
+        // Simuler une fuite pendant 5 secondes
+    function simulerFuite() {
+    const niveau = document.getElementById('niveauFuite').value;
+    
+    fetch('/api/simuler-fuite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ niveau: niveau })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('✅ Simulation lancée:', data);
+        alert(`Simulation ${niveau} lancée!`);
+    })
+    .catch(error => {
+        console.error('❌ Erreur:', error);
+    });
+}
+
+function forcerAlerte() {
+    if (confirm('⚠️ Forcer une alerte immédiate ?')) {
+        fetch('/api/forcer-alerte', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            console.log('✅ Alerte forcée:', data);
+        });
+    }
+}
+            
+            simulationActive = true;
+            secondsLeft = 5;
+            
+            // Afficher le timer
+            document.getElementById('timerDisplay').style.display = 'block';
+            document.getElementById('timerSeconds').textContent = secondsLeft;
+            document.getElementById('progressFill').style.width = '100%';
+            
+            // Démarrer le compte à rebours
+            simulationTimer = setInterval(() => {
+                secondsLeft--;
+                document.getElementById('timerSeconds').textContent = secondsLeft;
+                
+                // Mettre à jour la barre de progression
+                const progress = (secondsLeft / 5) * 100;
+                document.getElementById('progressFill').style.width = progress + '%';
+                
+                if (secondsLeft <= 0) {
+                    clearInterval(simulationTimer);
+                    simulationActive = false;
+                    document.getElementById('timerDisplay').style.display = 'none';
+                }
+            }, 1000);
+            
+            // Envoyer la commande de simulation au serveur
+            fetch('/api/simuler-fuite', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('✅ Simulation lancée:', data);
+            })
+            .catch(error => {
+                console.error('❌ Erreur simulation:', error);
+                clearInterval(simulationTimer);
+                simulationActive = false;
+                document.getElementById('timerDisplay').style.display = 'none';
+            });
+
+        // Effacer les alertes
+        function effacerAlertes() {
+            fetch('/api/effacer-alertes', { method: 'POST' })
+                .then(() => {
+                    document.getElementById('alertesList').innerHTML = 
+                        '<div style="text-align: center; color: #666; padding: 20px;">Aucune alerte pour le moment</div>';
+                    document.getElementById('alerteCount').textContent = '0';
+                    document.getElementById('dashboard').classList.remove('alerte');
+                    
+                    // Réinitialiser les cartes de stats
+                    document.getElementById('statProbabilite').classList.remove('alerte-active');
+                    document.getElementById('statVibration').classList.remove('alerte-active');
+                    document.getElementById('statTemperature').classList.remove('alerte-active');
+                    document.getElementById('statPression').classList.remove('alerte-active');
+                });
+        }
+
+        // Recevoir les données du capteur
+        socket.on('nouvelle_donnee', function(data) {
+            // Mettre à jour les statistiques
+            document.getElementById('vibrationValue').textContent = data.vibration?.toFixed(2) || '0.00';
+            document.getElementById('temperatureValue').textContent = data.temperature?.toFixed(2) || '0.00';
+            document.getElementById('pressionValue').textContent = data.pression?.toFixed(2) || '0.00';
+            
+            if (data.prediction) {
+                const prob = (data.prediction.probabilite * 100).toFixed(1);
+                document.getElementById('probabiliteValue').textContent = prob + '%';
+            }
+            
+            // Mettre à jour le graphique
+            const time = new Date().toLocaleTimeString();
+            chart.data.labels.push(time);
+            chart.data.datasets[0].data.push(data.vibration || 0);
+            chart.data.datasets[1].data.push(data.temperature || 0);
+            chart.data.datasets[2].data.push(data.pression || 0);
+            
+            // Garder seulement les 20 dernières valeurs
+            if (chart.data.labels.length > 20) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[1].data.shift();
+                chart.data.datasets[2].data.shift();
+            }
+            
+            chart.update();
+        });
+
+        // Recevoir les alertes
+        socket.on('alerte', function(data) {
+            // Changer la couleur du dashboard
+            document.getElementById('dashboard').classList.add('alerte');
+            
+            // Ajouter l'alerte à la liste
+            const alertesList = document.getElementById('alertesList');
+            const alerteItem = document.createElement('div');
+            alerteItem.className = 'alerte-item fuite';
+            
+            const time = new Date(data.timestamp * 1000).toLocaleTimeString();
+            const prob = (data.probabilite * 100).toFixed(1);
+            
+            alerteItem.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span><strong>🚨 FUITE DÉTECTÉE!</strong> (${prob}%)</span>
+                    <span>V:${data.donnees.vibration?.toFixed(1)} T:${data.donnees.temperature?.toFixed(1)} P:${data.donnees.pression?.toFixed(1)}</span>
+                </div>
+                <div class="alerte-time">${time}</div>
+            `;
+            
+            alertesList.insertBefore(alerteItem, alertesList.firstChild);
+            
+            // Mettre à jour le compteur
+            const count = parseInt(document.getElementById('alerteCount').textContent) + 1;
+            document.getElementById('alerteCount').textContent = count;
+            
+            // Faire clignoter les cartes de stats
+            document.getElementById('statProbabilite').classList.add('alerte-active');
+            document.getElementById('statVibration').classList.add('alerte-active');
+            document.getElementById('statTemperature').classList.add('alerte-active');
+            document.getElementById('statPression').classList.add('alerte-active');
+            
+            // Arrêter le clignotement après 5 secondes
+            setTimeout(() => {
+                document.getElementById('statProbabilite').classList.remove('alerte-active');
+                document.getElementById('statVibration').classList.remove('alerte-active');
+                document.getElementById('statTemperature').classList.remove('alerte-active');
+                document.getElementById('statPression').classList.remove('alerte-active');
+            }, 5000);
+        });
+
+        // Recevoir les données normales
+        socket.on('nouvelle_donnee', function(data) {
+            if (!data.prediction?.fuite_detectee) {
+                // Ajouter une entrée normale dans les alertes si c'est un changement d'état
+                if (document.getElementById('dashboard').classList.contains('alerte')) {
+                    const alertesList = document.getElementById('alertesList');
+                    const alerteItem = document.createElement('div');
+                    alerteItem.className = 'alerte-item normal';
+                    
+                    const time = new Date(data.timestamp * 1000).toLocaleTimeString();
+                    
+                    alerteItem.innerHTML = `
+                        <div><strong>✅ Retour à la normale</strong></div>
+                        <div class="alerte-time">${time}</div>
+                    `;
+                    
+                    alertesList.insertBefore(alerteItem, alertesList.firstChild);
+                }
+                
+                document.getElementById('dashboard').classList.remove('alerte');
+            }
+        });
+
+        // Charger les alertes au démarrage
+        fetch('/api/alertes')
+            .then(response => response.json())
+            .then(alertes => {
+                if (alertes.length > 0) {
+                    const alertesList = document.getElementById('alertesList');
+                    alertesList.innerHTML = '';
+                    
+                    alertes.reverse().forEach(alerte => {
+                        const alerteItem = document.createElement('div');
+                        alerteItem.className = 'alerte-item fuite';
+                        
+                        const time = new Date(alerte.timestamp * 1000).toLocaleTimeString();
+                        const prob = (alerte.probabilite * 100).toFixed(1);
+                        
+                        alerteItem.innerHTML = `
+                            <div style="display: flex; justify-content: space-between;">
+                                <span><strong>🚨 FUITE</strong> (${prob}%)</span>
+                                <span>V:${alerte.donnees.vibration?.toFixed(1)}</span>
+                            </div>
+                            <div class="alerte-time">${time}</div>
+                        `;
+                        
+                        alertesList.appendChild(alerteItem);
+                    });
+                    
+                    document.getElementById('alerteCount').textContent = alertes.length;
+                }
+            });
+    </script>
+</body>
+</html>
