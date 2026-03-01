@@ -1,11 +1,11 @@
-# 🔍 Système de Détection de Fuites
+#  Système de Détection de Fuites
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![Flask](https://img.shields.io/badge/flask-2.0+-red)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 
-## 📋 Table des matières
+## Table des matières
 - [Aperçu](#-aperçu)
 - [Fonctionnalités](#-fonctionnalités)
 - [Architecture](#-architecture)
@@ -21,7 +21,7 @@
 - [Contribuer](#-contribuer)
 - [Licence](#-licence)
 
-## 🎯 Aperçu
+##  Aperçu
 
 Système complet de **détection de fuites en temps réel** utilisant l'intelligence artificielle. Ce projet combine :
 - **ESP32** pour l'acquisition de données capteurs
@@ -29,31 +29,31 @@ Système complet de **détection de fuites en temps réel** utilisant l'intellig
 - **Dashboard web interactif** pour la visualisation
 - **Alertes en temps réel** avec activation de vibreur
 
-## ✨ Fonctionnalités
+##  Fonctionnalités
 
-### 📊 Dashboard en temps réel
+###  Dashboard en temps réel
 - Graphique dynamique des 3 capteurs
 - Statistiques en direct
 - Alertes visuelles avec code couleur
 - Timer de simulation
 
-### 🤖 Intelligence Artificielle
+###  Intelligence Artificielle
 - Modèle Random Forest entraîné
 - Prédiction de fuite avec probabilité
 - Seuil d'alerte configurable (30%)
 
-### 📡 Communication
+###  Communication
 - Socket.IO pour temps réel
 - API REST complète
 - Compatible ESP32
 
-### 🚨 Alertes
+###  Alertes
 - Dashboard rouge avec animation
 - Activation du vibreur ESP32
 - Historique des alertes
 - Simulation à 100%
 
-## 🏗 Architecture
+##  Architecture
 ┌─────────┐ ┌──────────┐ ┌─────────┐ ┌─────────┐
 │ ESP32 │────▶│ Serveur │────▶│ Modèle │────▶│Dashboard│
 │Capteurs │ │ Flask │ │ ML │ │ Web │
@@ -65,7 +65,7 @@ Système complet de **détection de fuites en temps réel** utilisant l'intellig
 │ données │ │Email/SMS│ │ LED │
 └──────────┘ └─────────┘ └─────────┘
 
-## 📦 Installation
+##  Installation
 
 ### Prérequis
 - Python 3.8 ou supérieur
